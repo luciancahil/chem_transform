@@ -77,7 +77,7 @@ class MoleculeDataset(Dataset):
                 array = self.smiles_to_input(line)
                 if(len(array) > utils.INPUT_SIZE):
                     continue
-            except(KeyError):
+            except:
                 continue
             
             padding_len = utils.INPUT_SIZE -  len(array)
