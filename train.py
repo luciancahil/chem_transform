@@ -16,8 +16,8 @@ num_token_type = 60
 embed_size = 3
 latent_size = 10
 bottleneck_size = 5
-train_dataset = MoleculeDataset(root="data/", filename="Test_small.csv")
-test_dataset = MoleculeDataset(root="data/", filename="Train_small.csv", test=True)
+train_dataset = MoleculeDataset(root="data/", filename="Train.csv")
+test_dataset = MoleculeDataset(root="data/", filename="Test.csv", test=True)
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True)
 
