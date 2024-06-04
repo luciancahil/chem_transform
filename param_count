@@ -1,0 +1,16 @@
+from Transformer import Chem_Autoencoder
+feature_size = 90
+num_token_type = 60
+embed_size = 3
+latent_size = 10
+bottleneck_size = 5
+
+embed_size = num_token_type * embed_size
+encode_attention_size = 4 * embed_size * embed_size
+encode_linear_size = 2 * feature_size * embed_size * latent_size
+decode_linear_size = latent_size * feature_size * embed_size
+decode_attention_size = 4 * embed_size * embed_size
+decode_bottlenck_size = feature_size * embed_size * bottleneck_size
+final_size = feature_size * num_token_type*bottleneck_size
+
+print(embed_size + encode_attention_size + encode_attention_size + decode_linear_size + decode_attention_size + decode_bottlenck_size + final_size)
