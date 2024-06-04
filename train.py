@@ -16,6 +16,9 @@ num_token_type = 60
 embed_size = 3
 latent_size = 10
 bottleneck_size = 5
+
+torch.set_default_device(device)
+print("Default: " + str(device))
 train_dataset = MoleculeDataset(root="data/", filename="Train.csv")
 test_dataset = MoleculeDataset(root="data/", filename="Test.csv", test=True)
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=False)
