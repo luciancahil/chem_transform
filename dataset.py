@@ -6,6 +6,7 @@ import numpy as np
 import os
 import re
 import utils
+import sklearn.utils.class_weight as cw
 
 print(f"Torch version: {torch.__version__}")
 print(f"Cudas available: {torch.cuda.device_count()}")
@@ -20,6 +21,8 @@ class MoleculeDataset(Dataset):
         self.test = test
         self.filename = filename
         self.length = length
+        self.class_weights = []
+
         super(MoleculeDataset, self).__init__(root, transform, pre_transform)
         
     @property
@@ -33,7 +36,11 @@ class MoleculeDataset(Dataset):
     def processed_file_names(self):
         """ If these files are found in raw_dir, processing is skipped """
         processed_files = [f for f in os.listdir(self.processed_dir) if not f.startswith("pre")]
-    
+        try:
+            self.class_weights = torch.load(os.path.join(self.processed_dir, "0weights.pt"))
+        except OSError as e: 
+            pass
+            
         if self.test:
             processed_files = [file for file in processed_files if "test" in file]
             if len(processed_files) == 0:
@@ -63,6 +70,7 @@ class MoleculeDataset(Dataset):
 
     def process(self):
         f = open(self.raw_paths[0], 'r')
+        chars = [i for i in range(len(utils.token_to_enum) + 1)]
 
         for line in f:
             try:
@@ -75,6 +83,8 @@ class MoleculeDataset(Dataset):
             padding_len = utils.INPUT_SIZE -  len(array)
             padding = [0] * padding_len
             array += padding
+            chars += array
+
                 
             data = {'x': torch.tensor(array), 'SMILES': line.strip()}
             if self.test:
@@ -88,7 +98,11 @@ class MoleculeDataset(Dataset):
             
             self.length += 1
         
-            
+        self.class_weights = torch.tensor(cw.compute_class_weight(class_weight="balanced", classes=np.unique(chars), y=chars), dtype=torch.float)
+        if not (self.test):
+            torch.save(self.class_weights,
+                    os.path.join(self.processed_dir, "0weights.pt"))
+        breakpoint()
         print(f"Done. Stored {self.length} preprocessed molecules.")
 
     def _get_label(self, label):

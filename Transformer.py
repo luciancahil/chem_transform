@@ -1,26 +1,41 @@
 import torch
 import torch.nn as nn
-
+import utils
+device = utils.DEVICE
 
 class Chem_Autoencoder(nn.Module):
-    def __init__(self, feature_size = 90, num_token_type = 60, embed_size = 3, latent_size = 10, bottleneck_size = 5):
+    def __init__(self, feature_size = 90, num_token_type = 60, embed_size = 20, large_embed_size = 40, latent_size = 100):
         super(Chem_Autoencoder, self).__init__()
         self.feature_size = feature_size
         self.embed_size = embed_size
         self.num_token_type  = num_token_type
         self.embedding = nn.Embedding(num_token_type, embed_size)
-        self.encode_attention = nn.MultiheadAttention(embed_dim=embed_size, num_heads=1)
+        self.encode_attention = nn.MultiheadAttention(embed_dim=embed_size, num_heads=2)
         self.batch_norm_one = nn.BatchNorm1d(feature_size * embed_size)
         self.encode_linear_mu = nn.Linear(feature_size * embed_size, latent_size)
         self.encode_linear_logvar = nn.Linear(feature_size * embed_size, latent_size)
+        self.relu = nn.LeakyReLU()
+
+        # decoding
+
         self.decode_linear = nn.Linear(latent_size, feature_size * embed_size)
-        self.decode_attention = nn.MultiheadAttention(embed_dim=embed_size, num_heads=1)
-        self.decode_bottlenck = nn.Linear(feature_size * embed_size, bottleneck_size)
-        self.final_decode = nn.Linear(bottleneck_size, feature_size * num_token_type)
-        self.dropout = nn.Dropout(p = 0.5)
+        self.decode_expansion = nn.Linear(embed_size, large_embed_size)
+        self.mlp1 = nn.Linear(large_embed_size, large_embed_size)
+        self.mlp2 = nn.Linear(large_embed_size, large_embed_size)
+        self.mlp3 = nn.Linear(large_embed_size, large_embed_size)
+        self.mlp4 = nn.Linear(large_embed_size, large_embed_size)
+        self.mlp5 = nn.Linear(large_embed_size, large_embed_size)
+        self.batch_norm_mlp = nn.BatchNorm1d(large_embed_size)
+        self.decode_attention = nn.MultiheadAttention(embed_dim=large_embed_size, num_heads=2)
+        self.to_one_hot = nn.Linear(large_embed_size, num_token_type)
+        self.large_mlp1 = nn.Linear(num_token_type, num_token_type)
+        self.final_output = nn.Linear(num_token_type, num_token_type)
+        self.batch_norm_large = nn.BatchNorm1d(num_token_type)
+        self.dropout = nn.Dropout(p = 0.1)
     
 
     def encode(self, x, training):
+        x = x.to(device)
         x = self.embedding(x)
         x = self.encode_attention(x, x, x)[0]
         x = x.view(-1, self.embed_size * self.feature_size)
@@ -31,16 +46,32 @@ class Chem_Autoencoder(nn.Module):
         x = self.encode_linear_mu(x)
         return x, log_var
     
+    def dropout_if_train(self, x, layer, norm, training):
+        x = layer(x)
+        x = self.relu(x)
+
+
+        if(training):
+            x = self.dropout(x)
+        
+        return x
+    
     def decode(self, x, training):
+        x = x.to(device)
         x = self.decode_linear(x)
         x = x.view(-1, self.feature_size, self.embed_size)
+        x = self.dropout_if_train(x, self.decode_expansion, self.batch_norm_mlp, training)
+        x = self.dropout_if_train(x, self.mlp1, self.batch_norm_mlp, training)
+        x = self.dropout_if_train(x, self.mlp2, self.batch_norm_mlp, training)
+        x = self.dropout_if_train(x, self.mlp3, self.batch_norm_mlp, training)
+        x = self.dropout_if_train(x, self.mlp4, self.batch_norm_mlp, training)
+        x = self.dropout_if_train(x, self.mlp5, self.batch_norm_mlp, training)
+
         x = self.decode_attention(x, x, x)[0]
-        if training:
-            x = self.dropout(x)
-        x = x.view(-1, self.feature_size * self.embed_size)
-        x = self.decode_bottlenck(x)
-        x = self.final_decode(x)
-        x = x.view(-1, self.num_token_type, self.feature_size)
+        x = self.dropout_if_train(x, self.to_one_hot, self.batch_norm_large, training)
+        x = self.dropout_if_train(x, self.large_mlp1, self.batch_norm_large, training)
+        x = self.final_output(x)
+        x = torch.permute(x, (0, 2, 1))
         return x
 
 

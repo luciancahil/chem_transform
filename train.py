@@ -5,7 +5,7 @@ import selfies as sf
 from dataset import MoleculeDataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
 import numpy as np
 import torch.nn as nn
 
@@ -18,16 +18,21 @@ latent_size = 10
 bottleneck_size = 5
 train_dataset = MoleculeDataset(root="data/", filename="Train.csv")
 test_dataset = MoleculeDataset(root="data/", filename="Test.csv", test=True)
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=False)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True)
+
+
+class_weights = train_dataset.class_weights
 
 model = Chem_Autoencoder()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
-kl_beta = 0.5
+scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
+kl_beta = 0.2
 
-def calc_recon_loss(inputs, targets):
-    cross = nn.CrossEntropyLoss()
+def calc_recon_loss(inputs, targets, class_weights):
+    class_weights = class_weights.to(device)
+
+    cross = nn.CrossEntropyLoss(weight=class_weights)
     largest = torch.max(inputs, dim = 1)[1]
     corrects = torch.all(largest == targets, dim = 1)
     percentage_equal = torch.sum(corrects).item() / largest.shape[0]
@@ -46,8 +51,8 @@ def kl_loss(mu=None, logstd=None):
     return kl_div
  
 
-def loss_fn(preds, targets, mus, log_vars):
-    recon_loss, percent_equal = calc_recon_loss(preds, targets)
+def loss_fn(preds, targets, mus, log_vars, class_weights):
+    recon_loss, percent_equal = calc_recon_loss(preds, targets, class_weights)
     kl = kl_loss(mus, log_vars)
     return kl*kl_beta + recon_loss, kl, percent_equal
 
@@ -69,7 +74,7 @@ def run_one_epoch(data_loader, curr_type, epoch):
             # Call model
             outputs, mu, logvar = model(batch['x'], curr_type == 'Train') 
 
-            loss, kl_div, percent_equal = loss_fn(outputs, batch['x'], mu, logvar,)
+            loss, kl_div, percent_equal = loss_fn(outputs, batch['x'], mu, logvar,class_weights)
             accuracy.append(percent_equal)
             if curr_type == "Train":
                 loss.backward()  
