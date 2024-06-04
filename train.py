@@ -106,7 +106,7 @@ for epoch in range(201):
         model.eval()
         run_one_epoch(test_loader, curr_type="Test", epoch=epoch)
     
-torch.save(model, "model.sh")
+torch.save(model, "model.pt")
 
 
 
