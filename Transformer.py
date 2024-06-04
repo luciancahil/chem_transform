@@ -36,6 +36,7 @@ class Chem_Autoencoder(nn.Module):
 
     def encode(self, x, training):
         x = x.to(device)
+        self.embedding.to(device)
         x = self.embedding(x)
         x = self.encode_attention(x, x, x)[0]
         x = x.view(-1, self.embed_size * self.feature_size)
