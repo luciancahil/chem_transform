@@ -17,7 +17,6 @@ embed_size = 3
 latent_size = 10
 bottleneck_size = 5
 
-torch.set_default_device(device)
 print("Default: " + str(device))
 train_dataset = MoleculeDataset(root="data/", filename="Train.csv")
 test_dataset = MoleculeDataset(root="data/", filename="Test.csv", test=True)
@@ -28,6 +27,8 @@ test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True)
 class_weights = train_dataset.class_weights
 
 model = Chem_Autoencoder()
+model.to(device)
+
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
 kl_beta = 0.2
