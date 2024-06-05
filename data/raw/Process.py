@@ -17,8 +17,10 @@ char_to_idx = dict()
 idx_to_char = []
 idx_to_char.append('[START]')
 
-for i, key in enumerate(char_count.keys()):
-    char_to_idx[key] = i + 1
+for key in char_count.keys():
+    if char_count[key] < 5000:
+        continue
+    char_to_idx[key] = len(char_to_idx) + 1
     idx_to_char.append(key)
 
 print(char_to_idx)
