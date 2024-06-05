@@ -102,7 +102,6 @@ class MoleculeDataset(Dataset):
         if not (self.test):
             torch.save(self.class_weights,
                     os.path.join(self.processed_dir, "0weights.pt"))
-        breakpoint()
         print(f"Done. Stored {self.length} preprocessed molecules.")
 
     def _get_label(self, label):

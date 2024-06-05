@@ -25,7 +25,7 @@ test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True)
 
 
 class_weights = train_dataset.class_weights
-
+print("weights: " + str(class_weights))
 model = Chem_Autoencoder()
 model.to(device)
 
