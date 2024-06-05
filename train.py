@@ -34,6 +34,7 @@ scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
 kl_beta = 0.2
 
 def calc_recon_loss(inputs, targets, class_weights):
+    class_weights = torch.tensor(class_weights)
     class_weights = class_weights.to(device)
 
     cross = nn.CrossEntropyLoss(weight=class_weights)
