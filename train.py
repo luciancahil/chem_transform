@@ -36,9 +36,12 @@ kl_beta = 0.2
 def calc_recon_loss(inputs, targets, class_weights):
     class_weights = torch.tensor(class_weights)
     class_weights = class_weights.to(device)
+    
 
     cross = nn.CrossEntropyLoss(weight=class_weights)
     largest = torch.max(inputs, dim = 1)[1]
+    largest = largest.to(device)
+    targets = targets.to(device)
     corrects = torch.all(largest == targets, dim = 1)
     percentage_equal = torch.sum(corrects).item() / largest.shape[0]
     return cross(inputs, targets), percentage_equal
@@ -49,6 +52,10 @@ def kl_loss(mu=None, logstd=None):
     """
     MAX_LOGSTD = 10
     logstd = logstd.clamp(max=MAX_LOGSTD)
+    mu = torch.tensor(mu)
+    logstd = torch.tensor(logstd)
+    mu = mu.to(device)
+    logstd = logstd.to(device)
     kl_div = -0.5 * torch.mean(torch.sum(1 + 2 * logstd - mu**2 - torch.exp(2 * logstd), dim=1))
 
     # Limit numeric errors
