@@ -1,14 +1,14 @@
-from Transformer import Chem_Autoencoder
-import utils
+from LSTM_Encoder import Chem_Autoencoder
+import LSTM_utils as utils
 import torch
 import selfies as sf
-from dataset import MoleculeDataset
+from LSTM_dataset import MoleculeDataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torch.optim.lr_scheduler import StepLR
 import numpy as np
 import torch.nn as nn
-
+import traceback
 device = utils.DEVICE
 
 feature_size = utils.INPUT_SIZE
@@ -18,14 +18,12 @@ latent_size = 10
 bottleneck_size = 5
 
 print("Default: " + str(device))
-train_dataset = MoleculeDataset(root="data/", filename="Train.csv")
-test_dataset = MoleculeDataset(root="data/", filename="Test.csv", test=True)
+train_dataset = MoleculeDataset(root="data/", filename="Train_small.csv")
+test_dataset = MoleculeDataset(root="data/", filename="Test_small.csv", test=True)
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=False)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True)
 
-
 class_weights = train_dataset.class_weights
-print("weights: " + str(class_weights))
 model = Chem_Autoencoder()
 model.to(device)
 
@@ -33,17 +31,26 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
 kl_beta = 0.2
 
+
+for key in utils.token_to_enum.keys():
+    print(key + ": " + str(utils.token_to_enum[key]))
 def calc_recon_loss(inputs, targets, class_weights):
     class_weights = torch.tensor(class_weights)
-    class_weights = class_weights.to(device)
-    
 
-    cross = nn.CrossEntropyLoss(weight=class_weights)
-    largest = torch.max(inputs, dim = 1)[1]
+    class_weights = class_weights.to(device)
+
+    cross = nn.CrossEntropyLoss(ignore_index=len(utils.enum_to_token))
+    largest = torch.argmax(inputs, dim = 2)
     largest = largest.to(device)
     targets = targets.to(device)
+    print(targets[0])
+    print(largest[0])
+
     corrects = torch.all(largest == targets, dim = 1)
     percentage_equal = torch.sum(corrects).item() / largest.shape[0]
+    inputs = inputs.view(-1, len(utils.token_to_enum.keys()))
+    targets = targets.view(-1)
+
     return cross(inputs, targets), percentage_equal
 
 def kl_loss(mu=None, logstd=None):
@@ -84,8 +91,8 @@ def run_one_epoch(data_loader, curr_type, epoch):
             # Reset gradients
             optimizer.zero_grad() 
             # Call model
-            outputs, mu, logvar = model(batch['x'], curr_type == 'Train') 
 
+            outputs, mu, logvar = model(batch['x'], curr_type == 'Train', teacher_force_ratio = 0.5) 
             loss, kl_div, percent_equal = loss_fn(outputs, batch['x'], mu, logvar,class_weights)
             accuracy.append(percent_equal)
             if curr_type == "Train":
@@ -100,14 +107,12 @@ def run_one_epoch(data_loader, curr_type, epoch):
         except IndexError as error:
             # For a few graphs the edge information is not correct
             # Simply skip the batch containing those
-            print("Error: ", error)
-    
+            print(traceback.format_exc())    
     # Perform sampling
     """ if curr_type == "Test":
         generated_mols = model.sample_mols(num=10000)
         print(f"Generated {generated_mols} molecules.")
         mlflow.log_metric(key=f"Sampled molecules", value=float(generated_mols), step=epoch) """
-    print
     print(f"{curr_type} epoch {epoch} loss: ", np.array(all_losses).mean())
     print(f"{curr_type} epoch {epoch} accuracy: ", str(sum(accuracy)/len(accuracy)))
 
